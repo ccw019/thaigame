@@ -1,0 +1,679 @@
+from pathlib import Path
+
+html = r'''<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f5f7ff">
+<title>華語闖關複習遊戲</title>
+<style>
+  :root {
+    --ink: #202744;
+    --muted: #69718b;
+    --primary: #5865d9;
+    --primary-dark: #414db8;
+    --pale: #eef0ff;
+    --line: #e3e6f2;
+    --good: #18865b;
+    --good-bg: #e9f8f0;
+    --bad: #bd3e4b;
+    --bad-bg: #fff0f1;
+    --paper: #ffffff;
+    --bg: #f5f7ff;
+    --shadow: 0 12px 35px rgba(45, 56, 110, .09);
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--ink);
+    background: radial-gradient(circle at top left, #e8edff 0, transparent 34rem), var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  button { font: inherit; -webkit-tap-highlight-color: transparent; }
+  button:focus-visible { outline: 3px solid #9ba4ff; outline-offset: 3px; }
+  .app { width: min(100%, 760px); margin: 0 auto; padding: 18px 16px calc(28px + env(safe-area-inset-bottom)); }
+  .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:850; letter-spacing:.02em; font-size:1.04rem; }
+  .brand-icon { display:grid; place-items:center; width:42px; height:42px; border-radius:14px; background:var(--primary); color:#fff; font-size:1.35rem; box-shadow:0 6px 14px #5865d933; }
+  .sound-btn { border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:10px 13px; font-weight:750; cursor:pointer; }
+  .hero { padding: 4px 2px 18px; }
+  .eyebrow { color:var(--primary); font-size:.78rem; font-weight:850; letter-spacing:.12em; text-transform:uppercase; margin-bottom:7px; }
+  h1 { font-size:clamp(1.65rem, 6vw, 2.25rem); line-height:1.2; margin:0 0 8px; letter-spacing:-.035em; }
+  .subtitle { color:var(--muted); margin:0; line-height:1.6; font-size:.96rem; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:18px 0; }
+  .stat { background:#ffffffc9; border:1px solid #e7e9f5; border-radius:16px; padding:12px 10px; text-align:center; }
+  .stat strong { display:block; font-size:1.18rem; margin-bottom:2px; }
+  .stat span { color:var(--muted); font-size:.78rem; }
+  .game-card { background:var(--paper); border:1px solid #e7e9f5; border-radius:24px; box-shadow:var(--shadow); overflow:hidden; }
+  .game-head { padding:18px 18px 15px; border-bottom:1px solid #eff0f7; }
+  .progress-row { display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:.86rem; font-weight:800; }
+  .progress-label { color:var(--muted); font-weight:700; }
+  .progress-track { height:8px; border-radius:99px; overflow:hidden; background:#edf0fb; margin-top:12px; }
+  .progress-fill { height:100%; width:0%; border-radius:inherit; background:linear-gradient(90deg,#7884f1,#5865d9); transition:width .25s ease; }
+  .question-area { padding:22px 18px 20px; }
+  .type-pill { display:inline-flex; align-items:center; gap:6px; background:var(--pale); color:var(--primary-dark); border-radius:999px; padding:7px 11px; font-size:.8rem; font-weight:850; margin-bottom:17px; }
+  .prompt-label { color:var(--muted); font-size:.9rem; margin:0 0 9px; }
+  .prompt { font-size:clamp(1.7rem, 7vw, 2.5rem); line-height:1.45; font-weight:850; text-align:center; overflow-wrap:anywhere; margin:0; }
+  .prompt-pinyin { text-align:center; color:#777f9c; font-size:1rem; letter-spacing:.025em; margin-top:6px; line-height:1.65; }
+  .audio-inline { display:flex; justify-content:center; margin-top:12px; }
+  .audio-btn { border:1px solid #dfe3ff; color:var(--primary-dark); background:#f7f8ff; border-radius:999px; padding:10px 15px; font-weight:800; cursor:pointer; min-height:42px; }
+  .section-caption { color:var(--muted); font-size:.85rem; margin:22px 0 10px; font-weight:750; }
+  .options { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .option {
+    min-height:58px; border:1.5px solid var(--line); background:#fff; border-radius:15px;
+    padding:12px 10px; color:var(--ink); font-size:1.08rem; font-weight:800; cursor:pointer;
+    display:flex; justify-content:center; align-items:center; gap:8px; text-align:center;
+    transition:border-color .15s, background .15s, transform .15s;
+  }
+  .option:active, .tile:active { transform:scale(.98); }
+  .option .choice-pinyin { color:var(--muted); font-size:.83rem; font-weight:650; }
+  .option.correct { border-color:#64c49b; background:var(--good-bg); color:var(--good); }
+  .option.wrong { border-color:#f0a0a8; background:var(--bad-bg); color:var(--bad); }
+  .option:disabled { cursor:default; }
+  .sentence-answer { min-height:70px; display:flex; align-items:center; justify-content:center; align-content:center; flex-wrap:wrap; gap:8px; padding:12px; background:#f8f9ff; border:1.5px dashed #d9def7; border-radius:17px; }
+  .sentence-answer.empty::before { content:"點擊下方詞語，組成完整句子"; color:#9299b0; font-size:.9rem; }
+  .tile-row { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:11px; }
+  .tile { border:1.5px solid #dfe3f2; background:#fff; color:var(--ink); border-radius:12px; padding:10px 12px; min-height:48px; font-weight:800; cursor:pointer; box-shadow:0 2px 0 #e9ebf5; }
+  .tile.selected { background:var(--pale); border-color:#aeb5ff; color:var(--primary-dark); }
+  .tile .tile-pinyin { display:block; color:var(--muted); font-size:.7rem; font-weight:650; margin-top:2px; }
+  .sentence-controls { display:flex; gap:9px; margin-top:14px; }
+  .secondary-btn { flex:1; min-height:46px; border:1px solid var(--line); border-radius:13px; background:#fff; color:var(--ink); font-weight:800; cursor:pointer; }
+  .measure-prompt { font-size:clamp(1.45rem, 6vw, 2.1rem); }
+  .blank { display:inline-block; min-width:1.5em; padding:0 .12em; border-bottom:3px solid #8790ed; color:var(--primary); }
+  .feedback { display:none; border-radius:14px; padding:12px 13px; margin-top:16px; line-height:1.5; font-size:.92rem; font-weight:750; }
+  .feedback.show { display:block; }
+  .feedback.good { background:var(--good-bg); color:var(--good); }
+  .feedback.bad { background:var(--bad-bg); color:var(--bad); }
+  .action-row { padding:0 18px 20px; }
+  .primary-btn { width:100%; min-height:54px; border:0; border-radius:15px; color:#fff; background:var(--primary); font-size:1.04rem; font-weight:850; cursor:pointer; box-shadow:0 7px 15px #5865d926; }
+  .primary-btn:hover { background:var(--primary-dark); }
+  .primary-btn:disabled { opacity:.42; cursor:not-allowed; box-shadow:none; }
+  .footer-note { color:#8a91a8; font-size:.78rem; text-align:center; line-height:1.6; margin:15px 8px 0; }
+  .screen { display:none; }
+  .screen.active { display:block; }
+  .start-card, .result-card { background:#fff; border:1px solid #e7e9f5; border-radius:24px; padding:26px 20px; text-align:center; box-shadow:var(--shadow); }
+  .big-emoji { font-size:3.3rem; margin:3px 0 12px; }
+  .start-card h2, .result-card h2 { margin:0 0 9px; font-size:1.65rem; }
+  .start-card p, .result-card p { color:var(--muted); line-height:1.7; margin:0 auto 20px; max-width:440px; }
+  .feature-list { display:grid; gap:9px; text-align:left; max-width:390px; margin:0 auto 22px; }
+  .feature { background:#f7f8ff; padding:11px 13px; border-radius:12px; font-size:.9rem; }
+  .result-score { font-size:2.6rem; color:var(--primary); font-weight:900; margin:8px 0; }
+  .result-breakdown { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:20px 0; }
+  .result-breakdown div { background:#f7f8ff; padding:12px 6px; border-radius:12px; }
+  .result-breakdown strong { display:block; font-size:1.2rem; }
+  .result-breakdown span { display:block; color:var(--muted); font-size:.76rem; margin-top:3px; }
+  .hidden { display:none !important; }
+  @media (min-width:600px) {
+    .app { padding-top:28px; }
+    .question-area { padding:26px 28px 24px; }
+    .game-head { padding:20px 28px 17px; }
+    .action-row { padding:0 28px 26px; }
+    .options { gap:12px; }
+    .option { min-height:64px; }
+  }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition:none !important; } }
+</style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><div class="brand-icon" aria-hidden="true">文</div><span>華語闖關複習</span></div>
+    <button id="soundToggle" class="sound-btn" type="button" aria-pressed="true">🔊 語音開啟</button>
+  </header>
+
+  <section id="startScreen" class="screen active">
+    <div class="hero">
+      <div class="eyebrow">CHINESE MINI QUEST</div>
+      <h1>準備好挑戰 20 關了嗎？</h1>
+      <p class="subtitle">認識拼音、重組句子、選出正確量詞。每答對一題，就向終點前進一步！</p>
+      <div class="stats">
+        <div class="stat"><strong>20</strong><span>道題目</span></div>
+        <div class="stat"><strong>3</strong><span>種題型</span></div>
+        <div class="stat"><strong>🔁</strong><span>答錯可重試</span></div>
+      </div>
+    </div>
+    <div class="start-card">
+      <div class="big-emoji" aria-hidden="true">🚀</div>
+      <h2>開始闖關！</h2>
+      <p>請仔細看題目。答對後才能進入下一關，答錯也不用擔心，可以再試一次。</p>
+      <div class="feature-list">
+        <div class="feature">🔤 拼音選擇：看漢字，選出正確拼音，還能聽發音。</div>
+        <div class="feature">🧩 句子重組：依序點擊詞語卡片，排成正確句子。</div>
+        <div class="feature">📝 量詞填空：讀一讀句子，選出合適的量詞。</div>
+      </div>
+      <button id="startBtn" class="primary-btn" type="button">開始遊戲 →</button>
+    </div>
+  </section>
+
+  <section id="gameScreen" class="screen">
+    <div class="game-card">
+      <div class="game-head">
+        <div class="progress-row">
+          <span id="levelLabel">第 1 / 20 關</span>
+          <span class="progress-label" id="scoreLabel">答對 0 題</span>
+        </div>
+        <div class="progress-track" role="progressbar" aria-label="遊戲進度" aria-valuemin="0" aria-valuemax="20" aria-valuenow="0" id="progressBar">
+          <div id="progressFill" class="progress-fill"></div>
+        </div>
+      </div>
+      <div id="questionArea" class="question-area"></div>
+      <div class="action-row">
+        <button id="checkBtn" class="primary-btn" type="button" disabled>確認答案</button>
+      </div>
+    </div>
+    <p class="footer-note">小提醒：拼音採用漢語拼音聲調符號。語音由目前裝置的瀏覽器提供。</p>
+  </section>
+
+  <section id="resultScreen" class="screen">
+    <div class="result-card">
+      <div class="big-emoji" aria-hidden="true">🏆</div>
+      <h2>闖關完成！</h2>
+      <p>太棒了！你已經完成全部 20 道華語複習題。</p>
+      <div id="finalScore" class="result-score">20 / 20</div>
+      <div class="result-breakdown">
+        <div><strong id="pinyinCount">0</strong><span>拼音題</span></div>
+        <div><strong id="sentenceCount">0</strong><span>句子重組</span></div>
+        <div><strong id="measureCount">0</strong><span>量詞題</span></div>
+      </div>
+      <p id="resultMessage">繼續練習，你會越來越熟練！</p>
+      <button id="restartBtn" class="primary-btn" type="button">再玩一次 ↻</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  "use strict";
+
+  // 題庫共 20 題：拼音 8 題、句子重組 6 題、量詞 6 題。
+  // 拼音詞語「位」不另設拼音題，因為它已出現在「兩位日本小姐」量詞題中。
+  const questionBank = [
+    { type: "pinyin", hanzi: "家", pinyin: "jiā", choices: ["jiā", "jiǎ", "jià", "qiā"], answer: "jiā" },
+    { type: "pinyin", hanzi: "請進", pinyin: "qǐng jìn", choices: ["qǐng jìn", "qīng jīn", "qǐng jǐn", "qíng jìn"], answer: "qǐng jìn" },
+    { type: "pinyin", hanzi: "漂亮", pinyin: "piào liang", choices: ["piāo liàng", "piào liang", "piào liáng", "piǎo liang"], answer: "piào liang" },
+    { type: "pinyin", hanzi: "照相", pinyin: "zhào xiàng", choices: ["zhǎo xiàng", "zào xiàng", "zhào xiāng", "zhào xiàng"], answer: "zhào xiàng" },
+    { type: "pinyin", hanzi: "照片", pinyin: "zhào piàn", choices: ["zhào piàn", "zhǎo piān", "zhào piān", "zhāo piàn"], answer: "zhào piàn" },
+    { type: "pinyin", hanzi: "看書", pinyin: "kàn shū", choices: ["kān shū", "kàn shǔ", "kàn shū", "kǎn shū"], answer: "kàn shū" },
+    { type: "pinyin", hanzi: "爸爸", pinyin: "bà ba", choices: ["bā ba", "bà ba", "bǎ ba", "bà bà"], answer: "bà ba" },
+    { type: "pinyin", hanzi: "這些", pinyin: "zhè xiē", choices: ["zhè xiě", "zhèi xiē", "zhè xiē", "zhé xiē"], answer: "zhè xiē" },
+
+    { type: "sentence", sentence: "王老師喝好喝的茶", pinyin: "Wáng lǎoshī hē hǎohē de chá", tokens: [
+      {t:"王老師",p:"Wáng lǎoshī"},{t:"喝",p:"hē"},{t:"好喝",p:"hǎohē"},{t:"的",p:"de"},{t:"茶",p:"chá"}
+    ]},
+    { type: "sentence", sentence: "我有很多好看的照片", pinyin: "Wǒ yǒu hěn duō hǎokàn de zhàopiàn", tokens: [
+      {t:"我有",p:"wǒ yǒu"},{t:"很多",p:"hěn duō"},{t:"好看",p:"hǎokàn"},{t:"的",p:"de"},{t:"照片",p:"zhàopiàn"}
+    ]},
+    { type: "sentence", sentence: "我喜歡漂亮的房子", pinyin: "Wǒ xǐhuan piàoliang de fángzi", tokens: [
+      {t:"我喜歡",p:"wǒ xǐhuan"},{t:"漂亮",p:"piàoliang"},{t:"的",p:"de"},{t:"房子",p:"fángzi"}
+    ]},
+    { type: "sentence", sentence: "他有好看的照片", pinyin: "Tā yǒu hǎokàn de zhàopiàn", tokens: [
+      {t:"他",p:"tā"},{t:"有",p:"yǒu"},{t:"好看",p:"hǎokàn"},{t:"的",p:"de"},{t:"照片",p:"zhàopiàn"}
+    ]},
+    { type: "sentence", sentence: "這邊有三張照片", pinyin: "Zhèbiān yǒu sān zhāng zhàopiàn", tokens: [
+      {t:"這邊",p:"zhèbiān"},{t:"有",p:"yǒu"},{t:"三張",p:"sān zhāng"},{t:"照片",p:"zhàopiàn"}
+    ]},
+    { type: "sentence", sentence: "我們都喜歡喝茶", pinyin: "Wǒmen dōu xǐhuan hē chá", tokens: [
+      {t:"我們",p:"wǒmen"},{t:"都",p:"dōu"},{t:"喜歡",p:"xǐhuan"},{t:"喝茶",p:"hē chá"}
+    ]},
+
+    { type: "measure", before: "一", after: "紙", pinyin: "yì ___ zhǐ", answer: "張", answerPinyin: "zhāng", choices: ["張", "本", "個", "位"] },
+    { type: "measure", before: "三", after: "人", pinyin: "sān ___ rén", answer: "個", answerPinyin: "gè", choices: ["張", "個", "位", "本"] },
+    { type: "measure", before: "一", after: "蛋糕", pinyin: "yí ___ dàngāo", answer: "個", answerPinyin: "gè", choices: ["位", "張", "個", "本"] },
+    { type: "measure", before: "四", after: "問題", pinyin: "sì ___ wèntí", answer: "個", answerPinyin: "gè", choices: ["本", "個", "張", "位"] },
+    { type: "measure", before: "兩", after: "日本小姐", pinyin: "liǎng ___ Rìběn xiǎojiě", answer: "位", answerPinyin: "wèi", choices: ["個", "張", "位", "本"] },
+    { type: "measure", before: "六", after: "照片", pinyin: "liù ___ zhàopiàn", answer: "張", answerPinyin: "zhāng", choices: ["張", "位", "本", "個"] }
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const startScreen = $("startScreen");
+  const gameScreen = $("gameScreen");
+  const resultScreen = $("resultScreen");
+  const questionArea = $("questionArea");
+  const checkBtn = $("checkBtn");
+  const soundToggle = $("soundToggle");
+
+  let questions = [];
+  let currentIndex = 0;
+  let score = 0;
+  let answered = false;
+  let selectedChoice = null;
+  let chosenTiles = [];
+  let tileOrder = [];
+  let soundEnabled = true;
+  let typeCorrect = { pinyin: 0, sentence: 0, measure: 0 };
+  let feedbackNode = null;
+
+  const typeNames = {
+    pinyin: "🔤 拼音選擇",
+    sentence: "🧩 句子重組",
+    measure: "📝 量詞填空"
+  };
+
+  function shuffle(array) {
+    const result = array.slice();
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  }
+
+  function showScreen(screen) {
+    [startScreen, gameScreen, resultScreen].forEach(s => s.classList.remove("active"));
+    screen.classList.add("active");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function speak(text) {
+    if (!soundEnabled || !("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-TW";
+    utterance.rate = 0.82;
+    utterance.pitch = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const chineseVoice = voices.find(v => /^zh-TW/i.test(v.lang)) ||
+                         voices.find(v => /^zh/i.test(v.lang));
+    if (chineseVoice) utterance.voice = chineseVoice;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function updateProgress() {
+    $("levelLabel").textContent = `第 ${currentIndex + 1} / ${questions.length} 關`;
+    $("scoreLabel").textContent = `答對 ${score} 題`;
+    const done = currentIndex;
+    $("progressFill").style.width = `${done / questions.length * 100}%`;
+    $("progressBar").setAttribute("aria-valuenow", String(done));
+  }
+
+  function addFeedback(kind, message) {
+    if (!feedbackNode) {
+      feedbackNode = document.createElement("div");
+      feedbackNode.className = "feedback";
+      feedbackNode.setAttribute("role", "status");
+      feedbackNode.setAttribute("aria-live", "polite");
+      questionArea.appendChild(feedbackNode);
+    }
+    feedbackNode.className = `feedback show ${kind}`;
+    feedbackNode.textContent = message;
+  }
+
+  function resetFeedback() {
+    if (feedbackNode) feedbackNode.remove();
+    feedbackNode = null;
+  }
+
+  function createPinyinQuestion(q) {
+    const label = document.createElement("div");
+    label.className = "type-pill";
+    label.textContent = typeNames.pinyin;
+    questionArea.appendChild(label);
+
+    const promptLabel = document.createElement("p");
+    promptLabel.className = "prompt-label";
+    promptLabel.style.textAlign = "center";
+    promptLabel.textContent = "這個詞語的拼音是什麼？";
+    questionArea.appendChild(promptLabel);
+
+    const prompt = document.createElement("h2");
+    prompt.className = "prompt";
+    prompt.textContent = q.hanzi;
+    questionArea.appendChild(prompt);
+
+    const audio = document.createElement("div");
+    audio.className = "audio-inline";
+    const audioBtn = document.createElement("button");
+    audioBtn.type = "button";
+    audioBtn.className = "audio-btn";
+    audioBtn.textContent = "🔊 聽漢字發音";
+    audioBtn.addEventListener("click", () => speak(q.hanzi));
+    audio.appendChild(audioBtn);
+    questionArea.appendChild(audio);
+
+    const caption = document.createElement("p");
+    caption.className = "section-caption";
+    caption.textContent = "請選出正確的拼音";
+    questionArea.appendChild(caption);
+
+    const options = document.createElement("div");
+    options.className = "options";
+    shuffle(q.choices).forEach(choice => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "option";
+      btn.textContent = choice;
+      btn.addEventListener("click", () => {
+        if (answered) return;
+        selectedChoice = choice;
+        options.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        checkBtn.disabled = false;
+        checkBtn.textContent = "確認答案";
+      });
+      options.appendChild(btn);
+    });
+    questionArea.appendChild(options);
+  }
+
+  function createSentenceQuestion(q) {
+    const label = document.createElement("div");
+    label.className = "type-pill";
+    label.textContent = typeNames.sentence;
+    questionArea.appendChild(label);
+
+    const promptLabel = document.createElement("p");
+    promptLabel.className = "prompt-label";
+    promptLabel.style.textAlign = "center";
+    promptLabel.textContent = "點擊詞語卡片，排成正確的句子";
+    questionArea.appendChild(promptLabel);
+
+    const pinyin = document.createElement("div");
+    pinyin.className = "prompt-pinyin";
+    pinyin.textContent = q.pinyin;
+    questionArea.appendChild(pinyin);
+
+    const answerBox = document.createElement("div");
+    answerBox.className = "sentence-answer empty";
+    answerBox.setAttribute("aria-label", "你組成的句子");
+    questionArea.appendChild(answerBox);
+
+    const caption = document.createElement("p");
+    caption.className = "section-caption";
+    caption.textContent = "可點擊已選詞語，將它移回下方";
+    questionArea.appendChild(caption);
+
+    const tileBox = document.createElement("div");
+    tileBox.className = "tile-row";
+    questionArea.appendChild(tileBox);
+
+    tileOrder = shuffle(q.tokens.map((token, index) => ({ ...token, id: index })));
+    chosenTiles = [];
+
+    function renderTiles() {
+      answerBox.innerHTML = "";
+      answerBox.classList.toggle("empty", chosenTiles.length === 0);
+      chosenTiles.forEach(tile => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tile selected";
+        btn.textContent = tile.t;
+        btn.setAttribute("aria-label", `${tile.t}，${tile.p}，點擊移回詞語區`);
+        btn.addEventListener("click", () => {
+          if (answered) return;
+          chosenTiles = chosenTiles.filter(t => t.id !== tile.id);
+          renderTiles();
+          checkBtn.disabled = chosenTiles.length === 0;
+        });
+        answerBox.appendChild(btn);
+      });
+
+      tileBox.innerHTML = "";
+      tileOrder.filter(tile => !chosenTiles.some(t => t.id === tile.id)).forEach(tile => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "tile";
+        const word = document.createElement("span");
+        word.textContent = tile.t;
+        const py = document.createElement("span");
+        py.className = "tile-pinyin";
+        py.textContent = tile.p;
+        btn.append(word, py);
+        btn.addEventListener("click", () => {
+          if (answered) return;
+          chosenTiles.push(tile);
+          renderTiles();
+          checkBtn.disabled = chosenTiles.length === 0;
+        });
+        tileBox.appendChild(btn);
+      });
+    }
+    renderTiles();
+
+    const controls = document.createElement("div");
+    controls.className = "sentence-controls";
+    const clearBtn = document.createElement("button");
+    clearBtn.type = "button";
+    clearBtn.className = "secondary-btn";
+    clearBtn.textContent = "清除重排";
+    clearBtn.addEventListener("click", () => {
+      if (answered) return;
+      chosenTiles = [];
+      renderTiles();
+      checkBtn.disabled = true;
+    });
+    const listenBtn = document.createElement("button");
+    listenBtn.type = "button";
+    listenBtn.className = "secondary-btn";
+    listenBtn.textContent = "🔊 聽完整句子";
+    listenBtn.addEventListener("click", () => speak(q.sentence));
+    controls.append(clearBtn, listenBtn);
+    questionArea.appendChild(controls);
+  }
+
+  function createMeasureQuestion(q) {
+    const label = document.createElement("div");
+    label.className = "type-pill";
+    label.textContent = typeNames.measure;
+    questionArea.appendChild(label);
+
+    const promptLabel = document.createElement("p");
+    promptLabel.className = "prompt-label";
+    promptLabel.style.textAlign = "center";
+    promptLabel.textContent = "選出正確的量詞，完成句子";
+    questionArea.appendChild(promptLabel);
+
+    const prompt = document.createElement("h2");
+    prompt.className = "prompt measure-prompt";
+    prompt.innerHTML = `${q.before}<span class="blank">＿＿</span>${q.after}`;
+    questionArea.appendChild(prompt);
+
+    const pinyin = document.createElement("div");
+    pinyin.className = "prompt-pinyin";
+    pinyin.textContent = q.pinyin;
+    questionArea.appendChild(pinyin);
+
+    const audio = document.createElement("div");
+    audio.className = "audio-inline";
+    const audioBtn = document.createElement("button");
+    audioBtn.type = "button";
+    audioBtn.className = "audio-btn";
+    audioBtn.textContent = "🔊 聽句子";
+    audioBtn.addEventListener("click", () => speak(`${q.before}${q.answer}${q.after}`));
+    audio.appendChild(audioBtn);
+    questionArea.appendChild(audio);
+
+    const caption = document.createElement("p");
+    caption.className = "section-caption";
+    caption.textContent = "請選擇量詞";
+    questionArea.appendChild(caption);
+
+    const options = document.createElement("div");
+    options.className = "options";
+    shuffle(q.choices).forEach(choice => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "option";
+      btn.textContent = choice;
+      btn.addEventListener("click", () => {
+        if (answered) return;
+        selectedChoice = choice;
+        options.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        checkBtn.disabled = false;
+      });
+      options.appendChild(btn);
+    });
+    questionArea.appendChild(options);
+  }
+
+  function renderQuestion() {
+    answered = false;
+    selectedChoice = null;
+    chosenTiles = [];
+    feedbackNode = null;
+    checkBtn.disabled = true;
+    checkBtn.textContent = "確認答案";
+    questionArea.innerHTML = "";
+    const q = questions[currentIndex];
+    updateProgress();
+    if (q.type === "pinyin") createPinyinQuestion(q);
+    else if (q.type === "sentence") createSentenceQuestion(q);
+    else createMeasureQuestion(q);
+  }
+
+  function checkAnswer() {
+    if (answered) return;
+    const q = questions[currentIndex];
+    let isCorrect = false;
+
+    if (q.type === "sentence") {
+      if (chosenTiles.length !== q.tokens.length) {
+        addFeedback("bad", "還有詞語沒有選完喔！請把所有詞語排好。");
+        return;
+      }
+      isCorrect = chosenTiles.map(t => t.t).join("") === q.sentence;
+    } else {
+      if (selectedChoice === null) return;
+      isCorrect = selectedChoice === q.answer;
+    }
+
+    if (isCorrect) {
+      answered = true;
+      score++;
+      typeCorrect[q.type]++;
+      $("scoreLabel").textContent = `答對 ${score} 題`;
+      checkBtn.disabled = false;
+      checkBtn.textContent = currentIndex === questions.length - 1 ? "查看結果 →" : "下一關 →";
+      addFeedback("good", q.type === "sentence" ? `答對了！${q.sentence}` : "答對了！做得很好！");
+      if (q.type === "pinyin") speak(q.hanzi);
+      if (q.type === "sentence") speak(q.sentence);
+      if (q.type === "measure") speak(`${q.before}${q.answer}${q.after}`);
+      questionArea.querySelectorAll("button").forEach(btn => {
+        if (btn.classList.contains("option") || btn.classList.contains("tile")) btn.disabled = true;
+      });
+    } else {
+      addFeedback("bad", q.type === "sentence" ? "還沒排正確，再試一次！可以點擊已選的詞語移回去。" : "再試一次！仔細看看題目。");
+      if (q.type !== "sentence") {
+        questionArea.querySelectorAll(".option").forEach(btn => {
+          if (btn.textContent === selectedChoice) btn.classList.add("wrong");
+        });
+        selectedChoice = null;
+        questionArea.querySelectorAll(".option").forEach(btn => btn.classList.remove("selected"));
+      } else {
+        // 句子答錯時保留已選詞語，讓學生自行點擊移動調整。
+        chosenTiles = [];
+        const qArea = questionArea;
+        const existing = qArea.querySelector(".sentence-answer");
+        if (existing) {
+          existing.innerHTML = "";
+          existing.classList.add("empty");
+        }
+        // 重新啟用並重建詞語區；原順序不變，學生可以再次組句。
+        const tileBox = qArea.querySelector(".tile-row");
+        if (tileBox) {
+          tileBox.innerHTML = "";
+          tileOrder.forEach(tile => {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "tile";
+            const word = document.createElement("span");
+            word.textContent = tile.t;
+            const py = document.createElement("span");
+            py.className = "tile-pinyin";
+            py.textContent = tile.p;
+            btn.append(word, py);
+            btn.addEventListener("click", () => {
+              if (answered) return;
+              chosenTiles.push(tile);
+              btn.remove();
+              const answerBox = qArea.querySelector(".sentence-answer");
+              answerBox.classList.remove("empty");
+              const chosen = document.createElement("button");
+              chosen.type = "button";
+              chosen.className = "tile selected";
+              chosen.textContent = tile.t;
+              chosen.addEventListener("click", () => {
+                if (answered) return;
+                chosenTiles = chosenTiles.filter(t => t.id !== tile.id);
+                chosen.remove();
+                btn.disabled = false;
+                tileBox.appendChild(btn);
+                if (chosenTiles.length === 0) answerBox.classList.add("empty");
+                checkBtn.disabled = chosenTiles.length === 0;
+              });
+              answerBox.appendChild(chosen);
+              checkBtn.disabled = false;
+            });
+            tileBox.appendChild(btn);
+          });
+        }
+        checkBtn.disabled = true;
+      }
+    }
+  }
+
+  function nextQuestion() {
+    if (!answered) return;
+    if (currentIndex < questions.length - 1) {
+      currentIndex++;
+      renderQuestion();
+    } else {
+      showResults();
+    }
+  }
+
+  function showResults() {
+    $("finalScore").textContent = `${score} / ${questions.length}`;
+    $("pinyinCount").textContent = `${typeCorrect.pinyin} / 8`;
+    $("sentenceCount").textContent = `${typeCorrect.sentence} / 6`;
+    $("measureCount").textContent = `${typeCorrect.measure} / 6`;
+    const message = score === 20 ? "太厲害了！全部答對！" :
+                    score >= 16 ? "表現很好！再玩一次，挑戰全對！" :
+                    score >= 10 ? "做得不錯！多練習幾次會更熟悉。" :
+                    "謝謝你的努力！再玩一次，慢慢就會進步。";
+    $("resultMessage").textContent = message;
+    $("progressFill").style.width = "100%";
+    $("progressBar").setAttribute("aria-valuenow", "20");
+    showScreen(resultScreen);
+  }
+
+  function startGame() {
+    questions = shuffle(questionBank);
+    currentIndex = 0;
+    score = 0;
+    answered = false;
+    selectedChoice = null;
+    typeCorrect = { pinyin: 0, sentence: 0, measure: 0 };
+    showScreen(gameScreen);
+    renderQuestion();
+  }
+
+  checkBtn.addEventListener("click", () => {
+    if (answered) nextQuestion();
+    else checkAnswer();
+  });
+  $("startBtn").addEventListener("click", startGame);
+  $("restartBtn").addEventListener("click", startGame);
+
+  soundToggle.addEventListener("click", () => {
+    soundEnabled = !soundEnabled;
+    soundToggle.textContent = soundEnabled ? "🔊 語音開啟" : "🔇 語音關閉";
+    soundToggle.setAttribute("aria-pressed", String(soundEnabled));
+    if (!soundEnabled && "speechSynthesis" in window) window.speechSynthesis.cancel();
+  });
+
+  if (!("speechSynthesis" in window)) {
+    soundToggle.textContent = "語音不支援";
+    soundToggle.disabled = true;
+    soundEnabled = false;
+  }
+})();
+</script>
+</body>
+</html>
+'''
+
+path = Path("/mnt/data/chinese_review_game.html")
+path.write_text(html, encoding="utf-8")
+print(f"Created {path} ({path.stat().st_size} bytes)")
